@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "netwatch-cli"
+version = "1.0.0"
+description = "ISP Accountability & Connection Health Monitor"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "typer[all]>=0.12",
+    "speedtest-cli>=2.1",
+    "mcp[cli]>=1.0",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+netwatch = "netwatch.cli:app"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "mypy>=1.10",
+    "ruff>=0.4",
+    "pre-commit>=3.7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["netwatch"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["netwatch"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"

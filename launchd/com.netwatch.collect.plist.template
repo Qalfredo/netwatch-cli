@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+         "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.netwatch.collect</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{PYTHON_PATH}}</string>
+        <string>-m</string>
+        <string>netwatch</string>
+        <string>collect</string>
+    </array>
+
+    <!-- Fire every N seconds. 1800 = 30 minutes. -->
+    <key>StartInterval</key>
+    <integer>{{INTERVAL_SECONDS}}</integer>
+
+    <key>StandardOutPath</key>
+    <string>{{DATA_DIR}}/logs/collect.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{DATA_DIR}}/logs/collect_err.log</string>
+
+    <!-- Do NOT run immediately on load — wait for first interval. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- Kill if it runs longer than 2 minutes — safety net. -->
+    <key>WatchdogTimeout</key>
+    <integer>120</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>{{VENV_BIN}}:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
