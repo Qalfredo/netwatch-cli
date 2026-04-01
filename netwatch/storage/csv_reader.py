@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import csv
 import statistics
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+# Venezuela Standard Time: UTC-4, no DST.
+VET = timezone(timedelta(hours=-4))
 
 
 def load(csv_path: Path) -> list[dict[str, str]]:
@@ -61,6 +64,38 @@ def filter_by_range(
 def filter_by_date(rows: list[dict[str, str]], date_str: str) -> list[dict[str, str]]:
     """Return rows whose UTC date matches *date_str* (``YYYY-MM-DD``)."""
     return [r for r in rows if r.get("timestamp_utc", "").startswith(date_str)]
+
+
+def vet_datetime(row: dict[str, str]) -> datetime | None:
+    """Return the VET datetime for a row.
+
+    Uses ``timestamp_vet`` when present; falls back to converting ``timestamp_utc``.
+    Returns None on parse failure.
+    """
+    raw = row.get("timestamp_vet", "").strip()
+    if raw:
+        try:
+            return datetime.fromisoformat(raw)
+        except ValueError:
+            pass
+    # Fallback: derive from UTC
+    utc_raw = row.get("timestamp_utc", "").strip()
+    if utc_raw:
+        try:
+            return datetime.fromisoformat(utc_raw.rstrip("Z")).replace(tzinfo=UTC).astimezone(VET)
+        except ValueError:
+            pass
+    return None
+
+
+def filter_by_date_vet(rows: list[dict[str, str]], date_str: str) -> list[dict[str, str]]:
+    """Return rows whose VET date matches *date_str* (``YYYY-MM-DD``)."""
+    result = []
+    for row in rows:
+        dt = vet_datetime(row)
+        if dt and dt.strftime("%Y-%m-%d") == date_str:
+            result.append(row)
+    return result
 
 
 def _parse_float(value: str) -> float | None:
@@ -121,17 +156,18 @@ def failed_count(rows: list[dict[str, str]]) -> int:
 def hourly_averages(
     rows: list[dict[str, str]], column: str
 ) -> dict[int, float | None]:
-    """Return mean of *column* grouped by UTC hour-of-day (0–23)."""
+    """Return mean of *column* grouped by VET hour-of-day (0–23)."""
     buckets: dict[int, list[float]] = {h: [] for h in range(24)}
     for row in rows:
-        raw = row.get("timestamp_utc", "")
         val_str = row.get(column, "")
-        if not raw or not val_str:
+        if not val_str:
+            continue
+        dt = vet_datetime(row)
+        if dt is None:
             continue
         try:
-            hour = datetime.fromisoformat(raw.rstrip("Z")).replace(tzinfo=UTC).hour
             val = float(val_str)
-            buckets[hour].append(val)
+            buckets[dt.hour].append(val)
         except ValueError:
             continue
     return {h: (statistics.mean(v) if v else None) for h, v in buckets.items()}

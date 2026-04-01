@@ -12,6 +12,7 @@ class MeasurementRow:
     # Timestamps
     timestamp_utc: str
     timestamp_local: str
+    timestamp_vet: str  # Venezuela Standard Time (UTC-4, no DST)
 
     # Speed
     download_mbps: float | None
@@ -54,6 +55,7 @@ class MeasurementRow:
 CSV_FIELDNAMES: list[str] = [
     "timestamp_utc",
     "timestamp_local",
+    "timestamp_vet",
     "download_mbps",
     "upload_mbps",
     "ping_ms",

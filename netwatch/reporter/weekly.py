@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 from netwatch.storage import csv_reader
+from netwatch.storage.csv_reader import VET
 
 _SPEED_COLS = ["download_mbps", "upload_mbps"]
 
@@ -57,7 +58,8 @@ def generate(csv_path: Path, week_str: str | None = None) -> str:
 
     *week_str* is ISO format e.g. ``2026-W04``.  Defaults to current week.
     """
-    today = date.today()
+    from datetime import datetime
+    today = datetime.now(VET).date()
     if week_str is None:
         iso = today.isocalendar()
         week_str = f"{iso.year}-W{iso.week:02d}"
@@ -70,7 +72,7 @@ def generate(csv_path: Path, week_str: str | None = None) -> str:
     daily_stats: list[_DayStat] = []
     for offset in range(7):
         d = monday + timedelta(days=offset)
-        day_rows = csv_reader.filter_by_date(rows, d.strftime("%Y-%m-%d"))
+        day_rows = csv_reader.filter_by_date_vet(rows, d.strftime("%Y-%m-%d"))
         agg = csv_reader.aggregate(day_rows, _SPEED_COLS)
         daily_stats.append(
             _DayStat(
@@ -85,14 +87,14 @@ def generate(csv_path: Path, week_str: str | None = None) -> str:
 
     week_rows = [
         r for stat in daily_stats
-        for r in csv_reader.filter_by_date(rows, stat.date)
+        for r in csv_reader.filter_by_date_vet(rows, stat.date)
     ]
     week_agg = csv_reader.aggregate(week_rows, _SPEED_COLS)
 
     spark = _sparkline([s.dl_mean for s in daily_stats])
 
     lines: list[str] = [
-        f"# Weekly Report — {week_str}  ({monday} → {sunday})",
+        f"# Weekly Report — {week_str}  ({monday} -> {sunday}) (VET)",
         "",
         f"**Sparkline (↓ download):** `{spark}`",
         "",
@@ -122,7 +124,8 @@ def make_figures(csv_path: Path, week_str: str | None = None) -> list[Figure]:
     """Return matplotlib figures for the weekly report."""
     import matplotlib.pyplot as plt
 
-    today = date.today()
+    from datetime import datetime as _dt
+    today = _dt.now(VET).date()
     if week_str is None:
         iso = today.isocalendar()
         week_str = f"{iso.year}-W{iso.week:02d}"
@@ -133,7 +136,7 @@ def make_figures(csv_path: Path, week_str: str | None = None) -> list[Figure]:
     daily_stats: list[_DayStat] = []
     for offset in range(7):
         d = monday + timedelta(days=offset)
-        day_rows = csv_reader.filter_by_date(rows, d.strftime("%Y-%m-%d"))
+        day_rows = csv_reader.filter_by_date_vet(rows, d.strftime("%Y-%m-%d"))
         agg = csv_reader.aggregate(day_rows, _SPEED_COLS)
         daily_stats.append(
             _DayStat(
@@ -157,7 +160,7 @@ def make_figures(csv_path: Path, week_str: str | None = None) -> list[Figure]:
     width = 0.4
     ax1.bar([i - width / 2 for i in x], dl_vals, width, color="#0066cc", label="Download")
     ax1.bar([i + width / 2 for i in x], ul_vals, width, color="#00aa44", label="Upload")
-    ax1.set_title(f"Daily Avg Speed — {week_str}", fontsize=13)
+    ax1.set_title(f"Daily Avg Speed — {week_str} (VET)", fontsize=13)
     ax1.set_ylabel("Mbps")
     ax1.set_xticks(list(x))
     ax1.set_xticklabels(labels)

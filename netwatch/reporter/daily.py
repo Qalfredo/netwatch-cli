@@ -1,4 +1,4 @@
-"""Daily report: per-metric aggregates for a single UTC day."""
+"""Daily report: per-metric aggregates for a single VET day."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 from netwatch.storage import csv_reader
+from netwatch.storage.csv_reader import VET
 
 _SPEED_COLS = ["download_mbps", "upload_mbps"]
 _LATENCY_COLS = ["ping_ms", "jitter_ms", "packet_loss_pct"]
@@ -24,10 +25,10 @@ def _fmt(val: float | None, decimals: int = 1) -> str:
 
 
 def generate(csv_path: Path, date_str: str | None = None) -> str:
-    """Return a Markdown daily report for *date_str* (defaults to today UTC)."""
-    target_date = date_str or datetime.now(UTC).strftime("%Y-%m-%d")
+    """Return a Markdown daily report for *date_str* (defaults to today VET)."""
+    target_date = date_str or datetime.now(VET).strftime("%Y-%m-%d")
     rows = csv_reader.load(csv_path)
-    day_rows = csv_reader.filter_by_date(rows, target_date)
+    day_rows = csv_reader.filter_by_date_vet(rows, target_date)
 
     total = len(day_rows)
     below = csv_reader.below_contract_count(day_rows)
@@ -35,7 +36,7 @@ def generate(csv_path: Path, date_str: str | None = None) -> str:
     agg = csv_reader.aggregate(day_rows, _ALL_METRIC_COLS)
 
     lines: list[str] = [
-        f"# Daily Report — {target_date}",
+        f"# Daily Report — {target_date} (VET)",
         "",
         f"**Measurements:** {total}  |  "
         f"**Below contract:** {below} ({below / total * 100:.0f}%)  |  "
@@ -95,9 +96,9 @@ def generate(csv_path: Path, date_str: str | None = None) -> str:
     if active_hours:
         lines += [
             "",
-            "## Hourly Download Average",
+            "## Hourly Download Average (VET)",
             "",
-            "| Hour (UTC) | Avg Download |",
+            "| Hour (VET) | Avg Download |",
             "|------------|-------------|",
         ]
         for h, v in sorted(active_hours):
@@ -111,18 +112,17 @@ def make_figures(csv_path: Path, date_str: str | None = None) -> list[Figure]:
     import matplotlib.dates as mdates
     import matplotlib.pyplot as plt
 
-    target_date = date_str or datetime.now(UTC).strftime("%Y-%m-%d")
+    target_date = date_str or datetime.now(VET).strftime("%Y-%m-%d")
     rows = csv_reader.load(csv_path)
-    day_rows = csv_reader.filter_by_date(rows, target_date)
+    day_rows = csv_reader.filter_by_date_vet(rows, target_date)
 
     if not day_rows:
         return []
 
     times, downloads, uploads, pings = [], [], [], []
     for r in day_rows:
-        try:
-            ts = datetime.fromisoformat(r["timestamp_utc"].rstrip("Z")).replace(tzinfo=UTC)
-        except (KeyError, ValueError):
+        ts = csv_reader.vet_datetime(r)
+        if ts is None:
             continue
         times.append(ts)
         downloads.append(float(r["download_mbps"]) if r.get("download_mbps") else None)
@@ -141,7 +141,7 @@ def make_figures(csv_path: Path, date_str: str | None = None) -> list[Figure]:
         ax.plot(t_dl, v_dl, color="#0066cc", linewidth=1.5, label="Download (Mbps)")
     if t_ul:
         ax.plot(t_ul, v_ul, color="#00aa44", linewidth=1.5, label="Upload (Mbps)")
-    ax.set_title(f"Speed — {target_date}", fontsize=13)
+    ax.set_title(f"Speed — {target_date} (VET)", fontsize=13)
     ax.set_ylabel("Mbps")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
     ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
@@ -157,7 +157,7 @@ def make_figures(csv_path: Path, date_str: str | None = None) -> list[Figure]:
     if t_ping:
         fig2, ax2 = plt.subplots(figsize=(10, 3))
         ax2.plot(t_ping, v_ping, color="#cc6600", linewidth=1.5, label="Ping (ms)")
-        ax2.set_title(f"Latency — {target_date}", fontsize=13)
+        ax2.set_title(f"Latency — {target_date} (VET)", fontsize=13)
         ax2.set_ylabel("ms")
         ax2.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
         ax2.xaxis.set_major_locator(mdates.HourLocator(interval=2))

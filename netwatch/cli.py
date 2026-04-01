@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Annotated
 
 import typer
@@ -95,8 +95,10 @@ def collect(
 
     duration_s = time.monotonic() - t_start
 
+    _VET = timezone(timedelta(hours=-4))
     now_utc = datetime.now(UTC)
     now_local = datetime.now().astimezone()
+    now_vet = now_utc.astimezone(_VET)
 
     # Collect non-null error messages (ignore "skipped" markers)
     error_parts: list[str] = []
@@ -114,6 +116,7 @@ def collect(
     row = MeasurementRow(
         timestamp_utc=now_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
         timestamp_local=now_local.isoformat(),
+        timestamp_vet=now_vet.strftime("%Y-%m-%dT%H:%M:%S") + "-04:00",
         download_mbps=speed_result.download_mbps,
         upload_mbps=speed_result.upload_mbps,
         ping_ms=latency_result.ping_ms,

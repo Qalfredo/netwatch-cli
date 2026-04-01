@@ -11,10 +11,19 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 from netwatch.storage import csv_reader
+from netwatch.storage.csv_reader import VET
 
 _SPEED_COLS = ["download_mbps", "upload_mbps"]
 _LATENCY_COLS = ["ping_ms", "jitter_ms", "packet_loss_pct"]
 _DNS_COLS = ["isp_dns_ms", "cloudflare_dns_ms", "google_dns_ms"]
+
+
+def _ts_vet(row: dict[str, str]) -> str:
+    """Return a display timestamp in VET for a row."""
+    dt = csv_reader.vet_datetime(row)
+    if dt:
+        return dt.strftime("%Y-%m-%d %H:%M VET")
+    return row.get("timestamp_utc", "?")
 
 
 def _fmt(val: float | None, unit: str = "", decimals: int = 1) -> str:
@@ -69,7 +78,7 @@ def generate(csv_path: Path, since_days: int = 30, fmt: str = "md") -> str:
         except ValueError:
             pass
 
-    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(VET).strftime("%Y-%m-%d %H:%M VET")
     lines: list[str] = [
         "# ISP Evidence Report",
         "",
@@ -171,10 +180,10 @@ def generate(csv_path: Path, since_days: int = 30, fmt: str = "md") -> str:
         "",
     ]
     if loss_incidents:
-        lines += ["| Timestamp | Loss % | Ping (ms) |", "|-----------|--------|-----------|"]
+        lines += ["| Timestamp (VET) | Loss % | Ping (ms) |", "|-----------------|--------|-----------|"]
         for r in loss_incidents[:50]:  # cap at 50 for readability
             lines.append(
-                f"| {r.get('timestamp_utc', '?')} | {r.get('packet_loss_pct', '?')} "
+                f"| {_ts_vet(r)} | {r.get('packet_loss_pct', '?')} "
                 f"| {r.get('ping_ms', '?')} |"
             )
         if len(loss_incidents) > 50:
@@ -192,10 +201,10 @@ def generate(csv_path: Path, since_days: int = 30, fmt: str = "md") -> str:
         "",
     ]
     if drops:
-        lines += ["| Timestamp | Error |", "|-----------|-------|"]
+        lines += ["| Timestamp (VET) | Error |", "|-----------------|-------|"]
         for r in drops[:50]:
             lines.append(
-                f"| {r.get('timestamp_utc', '?')} | {r.get('error_message', '?')} |"
+                f"| {_ts_vet(r)} | {r.get('error_message', '?')} |"
             )
         if len(drops) > 50:
             lines.append(f"_… and {len(drops) - 50} more drops_")
@@ -231,13 +240,12 @@ def make_figures(csv_path: Path, since_days: int = 30) -> list[Figure]:
     if not report_rows:
         return []
 
-    # Parse time-series
+    # Parse time-series using VET
     times, downloads, pings = [], [], []
     below_flags = []
     for r in report_rows:
-        try:
-            ts = datetime.fromisoformat(r["timestamp_utc"].rstrip("Z")).replace(tzinfo=UTC)
-        except (KeyError, ValueError):
+        ts = csv_reader.vet_datetime(r)
+        if ts is None:
             continue
         times.append(ts)
         downloads.append(float(r["download_mbps"]) if r.get("download_mbps") else None)
@@ -258,7 +266,7 @@ def make_figures(csv_path: Path, since_days: int = 30) -> list[Figure]:
     if t_v:
         ts_line, vs_line = zip(*t_v)
         ax.plot(ts_line, vs_line, color="#0066cc", linewidth=0.6, alpha=0.4)
-    ax.set_title(f"Download Speed — last {since_days} days  (red = below contract)", fontsize=12)
+    ax.set_title(f"Download Speed — last {since_days} days (VET, red = below contract)", fontsize=12)
     ax.set_ylabel("Mbps")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m/%d"))
     ax.xaxis.set_major_locator(mdates.AutoDateLocator())
@@ -274,7 +282,7 @@ def make_figures(csv_path: Path, since_days: int = 30) -> list[Figure]:
     fig2, ax2 = plt.subplots(figsize=(10, 3))
     bar_colors = ["#cc2200" if v < max(h_vals) * 0.8 and v > 0 else "#0066cc" for v in h_vals]
     ax2.bar(hours, h_vals, color=bar_colors)
-    ax2.set_title("Avg Download by Hour of Day (UTC)", fontsize=12)
+    ax2.set_title("Avg Download by Hour of Day (VET)", fontsize=12)
     ax2.set_xlabel("Hour (UTC)")
     ax2.set_ylabel("Mbps")
     ax2.set_xticks(hours)
