@@ -300,6 +300,10 @@ def report_daily(
         str | None,
         typer.Option("--date", help="Date to report on (YYYY-MM-DD). Defaults to today."),
     ] = None,
+    save: Annotated[
+        str | None,
+        typer.Option("--save", help="Save .md and .pdf to this directory."),
+    ] = None,
 ) -> None:
     """Daily summary — today or a specific date."""
     from netwatch.reporter import daily
@@ -307,6 +311,13 @@ def report_daily(
     cfg = _get_config()
     report = daily.generate(cfg.measurements_csv, date)
     console.print(report)
+    if save:
+        from pathlib import Path
+        from netwatch.reporter import renderer
+        stem = f"daily_{date or __import__('datetime').date.today()}"
+        figs = daily.make_figures(cfg.measurements_csv, date)
+        md_path, pdf_path = renderer.save_report(report, Path(save), stem, figs)
+        console.print(f"\n[green]Saved:[/green] {md_path}\n[green]Saved:[/green] {pdf_path}")
 
 
 @report_app.command(name="weekly")
@@ -315,12 +326,28 @@ def report_weekly(
         str | None,
         typer.Option("--week", help="ISO week to report on (YYYY-WNN)."),
     ] = None,
+    save: Annotated[
+        str | None,
+        typer.Option("--save", help="Save .md and .pdf to this directory."),
+    ] = None,
 ) -> None:
     """Weekly aggregate across all metrics."""
     from netwatch.reporter import weekly
 
     cfg = _get_config()
-    console.print(weekly.generate(cfg.measurements_csv, week))
+    report = weekly.generate(cfg.measurements_csv, week)
+    console.print(report)
+    if save:
+        from pathlib import Path
+        from netwatch.reporter import renderer
+        if week is None:
+            import datetime as _dt
+            iso = _dt.date.today().isocalendar()
+            week = f"{iso.year}-W{iso.week:02d}"
+        stem = f"weekly_{week.replace('/', '-')}"
+        figs = weekly.make_figures(cfg.measurements_csv, week)
+        md_path, pdf_path = renderer.save_report(report, Path(save), stem, figs)
+        console.print(f"\n[green]Saved:[/green] {md_path}\n[green]Saved:[/green] {pdf_path}")
 
 
 @report_app.command(name="monthly")
@@ -329,12 +356,25 @@ def report_monthly(
         str | None,
         typer.Option("--month", help="Month to report on (YYYY-MM)."),
     ] = None,
+    save: Annotated[
+        str | None,
+        typer.Option("--save", help="Save .md and .pdf to this directory."),
+    ] = None,
 ) -> None:
     """Monthly aggregate report."""
     from netwatch.reporter import monthly
 
     cfg = _get_config()
-    console.print(monthly.generate(cfg.measurements_csv, month))
+    report = monthly.generate(cfg.measurements_csv, month)
+    console.print(report)
+    if save:
+        from pathlib import Path
+        from netwatch.reporter import renderer
+        import datetime as _dt
+        stem = f"monthly_{month or _dt.date.today().strftime('%Y-%m')}"
+        figs = monthly.make_figures(cfg.measurements_csv, month)
+        md_path, pdf_path = renderer.save_report(report, Path(save), stem, figs)
+        console.print(f"\n[green]Saved:[/green] {md_path}\n[green]Saved:[/green] {pdf_path}")
 
 
 @report_app.command(name="isp")
@@ -347,12 +387,24 @@ def report_isp(
         str,
         typer.Option("--format", help="Output format: md or txt."),
     ] = "md",
+    save: Annotated[
+        str | None,
+        typer.Option("--save", help="Save .md and .pdf to this directory."),
+    ] = None,
 ) -> None:
     """ISP evidence report: below-contract summary, worst periods, drop count."""
     from netwatch.reporter import isp_evidence
 
     cfg = _get_config()
-    console.print(isp_evidence.generate(cfg.measurements_csv, since, fmt))
+    report = isp_evidence.generate(cfg.measurements_csv, since, fmt)
+    console.print(report)
+    if save:
+        from pathlib import Path
+        from netwatch.reporter import renderer
+        stem = f"isp_evidence_{since}d"
+        figs = isp_evidence.make_figures(cfg.measurements_csv, since)
+        md_path, pdf_path = renderer.save_report(report, Path(save), stem, figs)
+        console.print(f"\n[green]Saved:[/green] {md_path}\n[green]Saved:[/green] {pdf_path}")
 
 
 @report_app.command(name="export")

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
 
 from netwatch.storage import csv_reader
 
@@ -100,3 +104,67 @@ def generate(csv_path: Path, date_str: str | None = None) -> str:
             lines.append(f"| {h:02d}:00 | {_fmt(v)} Mbps |")
 
     return "\n".join(lines)
+
+
+def make_figures(csv_path: Path, date_str: str | None = None) -> list[Figure]:
+    """Return matplotlib figures for the daily report."""
+    import matplotlib.dates as mdates
+    import matplotlib.pyplot as plt
+
+    target_date = date_str or datetime.now(UTC).strftime("%Y-%m-%d")
+    rows = csv_reader.load(csv_path)
+    day_rows = csv_reader.filter_by_date(rows, target_date)
+
+    if not day_rows:
+        return []
+
+    times, downloads, uploads, pings = [], [], [], []
+    for r in day_rows:
+        try:
+            ts = datetime.fromisoformat(r["timestamp_utc"].rstrip("Z")).replace(tzinfo=UTC)
+        except (KeyError, ValueError):
+            continue
+        times.append(ts)
+        downloads.append(float(r["download_mbps"]) if r.get("download_mbps") else None)
+        uploads.append(float(r["upload_mbps"]) if r.get("upload_mbps") else None)
+        pings.append(float(r["ping_ms"]) if r.get("ping_ms") else None)
+
+    figs: list[Figure] = []
+
+    # Speed chart
+    fig, ax = plt.subplots(figsize=(10, 3.5))
+    t_dl = [t for t, v in zip(times, downloads) if v is not None]
+    v_dl = [v for v in downloads if v is not None]
+    t_ul = [t for t, v in zip(times, uploads) if v is not None]
+    v_ul = [v for v in uploads if v is not None]
+    if t_dl:
+        ax.plot(t_dl, v_dl, color="#0066cc", linewidth=1.5, label="Download (Mbps)")
+    if t_ul:
+        ax.plot(t_ul, v_ul, color="#00aa44", linewidth=1.5, label="Upload (Mbps)")
+    ax.set_title(f"Speed — {target_date}", fontsize=13)
+    ax.set_ylabel("Mbps")
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+    ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
+    fig.autofmt_xdate(rotation=30)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    figs.append(fig)
+
+    # Latency chart
+    t_ping = [t for t, v in zip(times, pings) if v is not None]
+    v_ping = [v for v in pings if v is not None]
+    if t_ping:
+        fig2, ax2 = plt.subplots(figsize=(10, 3))
+        ax2.plot(t_ping, v_ping, color="#cc6600", linewidth=1.5, label="Ping (ms)")
+        ax2.set_title(f"Latency — {target_date}", fontsize=13)
+        ax2.set_ylabel("ms")
+        ax2.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+        ax2.xaxis.set_major_locator(mdates.HourLocator(interval=2))
+        fig2.autofmt_xdate(rotation=30)
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+        fig2.tight_layout()
+        figs.append(fig2)
+
+    return figs

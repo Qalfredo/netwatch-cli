@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
 
 from netwatch.storage import csv_reader
 
@@ -112,3 +116,60 @@ def generate(csv_path: Path, week_str: str | None = None) -> str:
     ]
 
     return "\n".join(lines)
+
+
+def make_figures(csv_path: Path, week_str: str | None = None) -> list[Figure]:
+    """Return matplotlib figures for the weekly report."""
+    import matplotlib.pyplot as plt
+
+    today = date.today()
+    if week_str is None:
+        iso = today.isocalendar()
+        week_str = f"{iso.year}-W{iso.week:02d}"
+
+    monday, sunday = _parse_iso_week(week_str)
+    rows = csv_reader.load(csv_path)
+
+    daily_stats: list[_DayStat] = []
+    for offset in range(7):
+        d = monday + timedelta(days=offset)
+        day_rows = csv_reader.filter_by_date(rows, d.strftime("%Y-%m-%d"))
+        agg = csv_reader.aggregate(day_rows, _SPEED_COLS)
+        daily_stats.append(
+            _DayStat(
+                date=d.strftime("%a\n%m/%d"),
+                count=len(day_rows),
+                dl_mean=agg["download_mbps"]["mean"],
+                ul_mean=agg["upload_mbps"]["mean"],
+                below=csv_reader.below_contract_count(day_rows),
+                failed=csv_reader.failed_count(day_rows),
+            )
+        )
+
+    labels = [s.date for s in daily_stats]
+    dl_vals = [s.dl_mean or 0.0 for s in daily_stats]
+    ul_vals = [s.ul_mean or 0.0 for s in daily_stats]
+    below_vals = [s.below for s in daily_stats]
+    x = range(len(labels))
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
+
+    width = 0.4
+    ax1.bar([i - width / 2 for i in x], dl_vals, width, color="#0066cc", label="Download")
+    ax1.bar([i + width / 2 for i in x], ul_vals, width, color="#00aa44", label="Upload")
+    ax1.set_title(f"Daily Avg Speed — {week_str}", fontsize=13)
+    ax1.set_ylabel("Mbps")
+    ax1.set_xticks(list(x))
+    ax1.set_xticklabels(labels)
+    ax1.legend()
+    ax1.grid(True, axis="y", alpha=0.3)
+
+    ax2.bar(list(x), below_vals, color="#cc2200", label="Below contract")
+    ax2.set_title("Below-Contract Measurements per Day", fontsize=13)
+    ax2.set_ylabel("Count")
+    ax2.set_xticks(list(x))
+    ax2.set_xticklabels(labels)
+    ax2.grid(True, axis="y", alpha=0.3)
+
+    fig.tight_layout(pad=2.0)
+    return [fig]

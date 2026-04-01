@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
 
 from netwatch.storage import csv_reader
 
@@ -214,3 +218,68 @@ def generate(csv_path: Path, since_days: int = 30, fmt: str = "md") -> str:
     lines.append("")
 
     return "\n".join(lines)
+
+
+def make_figures(csv_path: Path, since_days: int = 30) -> list[Figure]:
+    """Return matplotlib figures for the ISP evidence report."""
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+
+    rows = csv_reader.load(csv_path)
+    report_rows = csv_reader.filter_by_days(rows, since_days)
+
+    if not report_rows:
+        return []
+
+    # Parse time-series
+    times, downloads, pings = [], [], []
+    below_flags = []
+    for r in report_rows:
+        try:
+            ts = datetime.fromisoformat(r["timestamp_utc"].rstrip("Z")).replace(tzinfo=UTC)
+        except (KeyError, ValueError):
+            continue
+        times.append(ts)
+        downloads.append(float(r["download_mbps"]) if r.get("download_mbps") else None)
+        pings.append(float(r["ping_ms"]) if r.get("ping_ms") else None)
+        below_flags.append(r.get("below_contract", "").lower() == "true")
+
+    figs: list[Figure] = []
+
+    # Download scatter: color by below_contract
+    fig, ax = plt.subplots(figsize=(10, 3.5))
+    for i, (t, v, bad) in enumerate(zip(times, downloads, below_flags)):
+        if v is None:
+            continue
+        ax.scatter(t, v, color="#cc2200" if bad else "#0066cc",
+                   s=6, alpha=0.7, linewidths=0)
+    # Thin line connecting points
+    t_v = [(t, v) for t, v in zip(times, downloads) if v is not None]
+    if t_v:
+        ts_line, vs_line = zip(*t_v)
+        ax.plot(ts_line, vs_line, color="#0066cc", linewidth=0.6, alpha=0.4)
+    ax.set_title(f"Download Speed — last {since_days} days  (red = below contract)", fontsize=12)
+    ax.set_ylabel("Mbps")
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m/%d"))
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+    fig.autofmt_xdate(rotation=30)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    figs.append(fig)
+
+    # Hourly average bar chart
+    hourly = csv_reader.hourly_averages(report_rows, "download_mbps")
+    hours = list(range(24))
+    h_vals = [hourly.get(h) or 0.0 for h in hours]
+    fig2, ax2 = plt.subplots(figsize=(10, 3))
+    bar_colors = ["#cc2200" if v < max(h_vals) * 0.8 and v > 0 else "#0066cc" for v in h_vals]
+    ax2.bar(hours, h_vals, color=bar_colors)
+    ax2.set_title("Avg Download by Hour of Day (UTC)", fontsize=12)
+    ax2.set_xlabel("Hour (UTC)")
+    ax2.set_ylabel("Mbps")
+    ax2.set_xticks(hours)
+    ax2.grid(True, axis="y", alpha=0.3)
+    fig2.tight_layout()
+    figs.append(fig2)
+
+    return figs
