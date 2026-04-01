@@ -179,7 +179,7 @@ def run_collect() -> str:
     """Trigger an immediate measurement cycle and return the result."""
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "netwatch", "collect"],
+            [str(Path(sys.executable).parent / "netwatch"), "collect"],
             capture_output=True,
             text=True,
             timeout=120,
