@@ -55,7 +55,13 @@ def _consecutive_failures(rows: list[dict[str, str]]) -> int:
     return best
 
 
-def generate(csv_path: Path, since_days: int = 30, fmt: str = "md") -> str:
+def generate(
+    csv_path: Path,
+    since_days: int = 30,
+    fmt: str = "md",
+    contracted_down: float | None = None,
+    contracted_up: float | None = None,
+) -> str:
     """Return an ISP evidence report for the last *since_days* days.
 
     *fmt* is ``md`` (Markdown) or ``txt`` (plain text).
@@ -68,15 +74,19 @@ def generate(csv_path: Path, since_days: int = 30, fmt: str = "md") -> str:
     failed = csv_reader.failed_count(report_rows)
     agg = csv_reader.aggregate(report_rows, _SPEED_COLS + _LATENCY_COLS + _DNS_COLS)
 
-    # Contracted values from the first row (or defaults)
-    contracted_down: float = 100.0
-    contracted_up: float = 10.0
-    if report_rows:
-        try:
-            contracted_down = float(report_rows[0].get("contracted_down_mbps", "100") or "100")
-            contracted_up = float(report_rows[0].get("contracted_up_mbps", "10") or "10")
-        except ValueError:
-            pass
+    # Use caller-supplied contracted values; fall back to first CSV row, then defaults.
+    if contracted_down is None or contracted_up is None:
+        _cd, _cu = 100.0, 10.0
+        if report_rows:
+            try:
+                _cd = float(report_rows[0].get("contracted_down_mbps", "100") or "100")
+                _cu = float(report_rows[0].get("contracted_up_mbps", "10") or "10")
+            except ValueError:
+                pass
+        if contracted_down is None:
+            contracted_down = _cd
+        if contracted_up is None:
+            contracted_up = _cu
 
     now = datetime.now(VET).strftime("%Y-%m-%d %H:%M VET")
     lines: list[str] = [

@@ -78,7 +78,11 @@ def get_speed_summary(since: str, until: str | None = None) -> str:
 def get_isp_evidence_report(since_days: int = 30) -> str:
     """Return the full ISP evidence report as Markdown for the last N days."""
     cfg = _cfg()
-    return isp_evidence.generate(cfg.measurements_csv, since_days)
+    return isp_evidence.generate(
+        cfg.measurements_csv, since_days,
+        contracted_down=cfg.contracted_down_mbps,
+        contracted_up=cfg.contracted_up_mbps,
+    )
 
 
 # ---------------------------------------------------------------------------

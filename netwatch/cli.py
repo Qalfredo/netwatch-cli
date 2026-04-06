@@ -399,7 +399,11 @@ def report_isp(
     from netwatch.reporter import isp_evidence
 
     cfg = _get_config()
-    report = isp_evidence.generate(cfg.measurements_csv, since, fmt)
+    report = isp_evidence.generate(
+        cfg.measurements_csv, since, fmt,
+        contracted_down=cfg.contracted_down_mbps,
+        contracted_up=cfg.contracted_up_mbps,
+    )
     console.print(report)
     if save:
         from pathlib import Path
