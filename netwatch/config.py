@@ -17,9 +17,9 @@ data_dir          = "~/netwatch-data"
 log_level         = "WARNING"          # DEBUG | INFO | WARNING | ERROR
 
 [plan]
-contracted_down_mbps         = 100.0
-contracted_up_mbps           = 10.0
-below_contract_threshold_pct = 80.0   # flag if below this % of contracted
+contracted_down_mbps         = 1000.0
+contracted_up_mbps           = 1000.0
+below_contract_threshold_pct = 60.0   # flag if below this % of contracted
 
 [collection]
 speed_backend    = "speedtest"        # speedtest | iperf3
@@ -121,9 +121,9 @@ def load_config(path: Path | None = None) -> Config:
 
     log_level = str(nw.get("log_level", "WARNING")).upper()
 
-    contracted_down = float(plan.get("contracted_down_mbps", 100.0))
-    contracted_up = float(plan.get("contracted_up_mbps", 10.0))
-    below_pct = float(plan.get("below_contract_threshold_pct", 80.0))
+    contracted_down = float(plan.get("contracted_down_mbps", 1000.0))
+    contracted_up = float(plan.get("contracted_up_mbps", 1000.0))
+    below_pct = float(plan.get("below_contract_threshold_pct", 60.0))
 
     speed_backend = str(collection.get("speed_backend", "speedtest"))
     iperf3_server = str(collection.get("iperf3_server", ""))

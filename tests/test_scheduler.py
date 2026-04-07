@@ -46,6 +46,7 @@ class TestInstall:
     @patch("netwatch.scheduler.subprocess.run")
     def test_plist_contains_python_path(self, mock_run: MagicMock, tmp_path: Path) -> None:
         import sys
+        from pathlib import Path as _Path
 
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         cfg = _cfg(tmp_path)
@@ -55,7 +56,8 @@ class TestInstall:
             install(cfg)
 
         content = plist_path.read_text()
-        assert sys.executable in content
+        venv_bin = str(_Path(sys.executable).parent)
+        assert venv_bin in content
 
     @patch("netwatch.scheduler.subprocess.run")
     def test_calls_launchctl_load(self, mock_run: MagicMock, tmp_path: Path) -> None:
