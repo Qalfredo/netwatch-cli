@@ -138,7 +138,7 @@ def collect(
         contracted_up_mbps=cfg.contracted_up_mbps,
         below_contract=csv_writer.compute_below_contract(row=MeasurementRow(
             # temp object for the computation — reuse all fields already set
-            timestamp_utc="", timestamp_local="",
+            timestamp_utc="", timestamp_local="", timestamp_vet="",
             download_mbps=speed_result.download_mbps,
             upload_mbps=speed_result.upload_mbps,
             ping_ms=None, jitter_ms=None, packet_loss_pct=None,
