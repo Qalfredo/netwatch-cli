@@ -125,9 +125,12 @@ def make_figures(csv_path: Path, date_str: str | None = None) -> list[Figure]:
         if ts is None:
             continue
         times.append(ts)
-        downloads.append(float(r["download_mbps"]) if r.get("download_mbps") else None)
-        uploads.append(float(r["upload_mbps"]) if r.get("upload_mbps") else None)
-        pings.append(float(r["ping_ms"]) if r.get("ping_ms") else None)
+        def _f(v: str) -> float | None:
+            try: return float(v) if v else None
+            except ValueError: return None
+        downloads.append(_f(r.get("download_mbps", "")))
+        uploads.append(_f(r.get("upload_mbps", "")))
+        pings.append(_f(r.get("ping_ms", "")))
 
     figs: list[Figure] = []
 
