@@ -124,7 +124,7 @@ def make_figures(csv_path: Path, date_str: str | None = None) -> list[Figure]:
         ts = csv_reader.vet_datetime(r)
         if ts is None:
             continue
-        times.append(ts)
+        times.append(ts.replace(tzinfo=None))  # naive VET — prevents matplotlib UTC conversion
         def _f(v: str) -> float | None:
             try: return float(v) if v else None
             except ValueError: return None
