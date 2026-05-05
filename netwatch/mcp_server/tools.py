@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -50,17 +50,20 @@ def get_speed_summary(since: str, until: str | None = None) -> str:
 
     *since* and *until* are ISO dates (YYYY-MM-DD).
     """
+    from netwatch.storage.csv_reader import VET
     rows = csv_reader.load(_csv_path())
+    # Interpret date strings as VET day boundaries, then convert to UTC for range filter
     try:
-        start_dt = datetime.fromisoformat(since).replace(tzinfo=UTC)
+        start_dt = datetime.fromisoformat(since).replace(tzinfo=VET).astimezone(UTC)
     except ValueError:
         return json.dumps({"error": f"Invalid date: {since!r}"})
 
     end_dt = None
     if until:
         try:
-            end_dt = datetime.fromisoformat(until).replace(hour=23, minute=59, second=59,
-                                                           tzinfo=UTC)
+            end_dt = (datetime.fromisoformat(until)
+                      .replace(hour=23, minute=59, second=59, tzinfo=VET)
+                      .astimezone(UTC))
         except ValueError:
             return json.dumps({"error": f"Invalid date: {until!r}"})
 
@@ -158,7 +161,7 @@ def get_worst_hours(since_days: int = 30) -> str:
         [(h, v) for h, v in hourly.items() if v is not None],
         key=lambda x: x[1],
     )
-    result: list[dict[str, Any]] = [{"hour_utc": h, "avg_download_mbps": round(v, 2)}
+    result: list[dict[str, Any]] = [{"hour_vet": h, "avg_download_mbps": round(v, 2)}
                                      for h, v in ranked]
     return json.dumps({"since_days": since_days, "hours_ranked_worst_first": result})
 
