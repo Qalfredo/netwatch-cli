@@ -92,6 +92,46 @@ interval_minutes = 30
 max_rows_per_tool = 500
 ```
 
+## MCP Server (Claude Desktop Integration)
+
+netwatch includes an [MCP](https://modelcontextprotocol.io) stdio server that exposes your connection data directly to Claude Desktop, letting you query and analyze your network health in plain language.
+
+### Setup
+
+```bash
+# Print the config snippet for Claude Desktop
+netwatch mcp-server --print-config
+```
+
+Add the output to `~/Library/Application Support/Claude/claude_desktop_config.json` under `"mcpServers"`, then restart Claude Desktop.
+
+### Available Tools
+
+| Tool | Description |
+|---|---|
+| `get_latest_measurement` | Most recent measurement row as JSON |
+| `get_speed_summary` | Aggregated stats (mean/min/max/p95) over a date range |
+| `get_isp_evidence_report` | Full ISP complaint report as Markdown |
+| `get_below_contract_rate` | % of measurements below contracted speed |
+| `get_packet_loss_incidents` | All loss events above a threshold |
+| `get_connection_drops` | All failed measurement attempts |
+| `get_dns_comparison` | ISP vs Cloudflare vs Google DNS latency |
+| `get_worst_hours` | Hours ranked by worst avg download (VET) |
+| `get_daily_report` | Daily Markdown report for a given date |
+| `run_collect` | Trigger an immediate measurement cycle |
+| `export_csv` | Raw CSV export as a string |
+
+All timestamps returned by the MCP tools include `timestamp_vet` (Venezuela Standard Time, UTC-4) alongside UTC.
+
+### Example Queries
+
+Once connected, you can ask Claude things like:
+
+- *"How was my connection this week?"*
+- *"What are my worst hours for download speed?"*
+- *"Generate an ISP evidence report for the last 7 days"*
+- *"Run a measurement right now"*
+
 ## Data
 
 All measurements are stored in `~/netwatch-data/measurements_v1.csv` — append-only, never modified after writing.
